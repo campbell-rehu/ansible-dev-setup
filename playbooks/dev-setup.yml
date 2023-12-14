@@ -83,14 +83,59 @@
       args:
         creates: "{{ home_dir }}/.local/bin/lvim"
 
+    - name: get list of groups
+      shell:
+        cmd: compgen -g
+      args:
+        executable: /bin/bash
+      register: get_groups
+
+    - name: create chsh group
+      become: true
+      shell:
+        cmd: |
+          groupadd chsh
+          usermod -a -G chsh {{ user }}
+      when: get_groups.stdout.find('chsh') == -1
+
+    - name: get chsh pam.d
+      shell:
+        cmd: cat /etc/pam.d/chsh
+      register: get_pamd
+
+    - name: add chsh group permissions to change shell
+      become: true
+      shell:
+        cmd: |
+          echo "auth       sufficient   pam_wheel.so trust group=chsh" | cat - /etc/pam.d/chsh > /tmp/out && sudo mv /tmp/out /etc/pam.d/chsh -f
+      when: get_pamd.stdout.find('group=chsh') == -1
+
     - name: check /etc/shells for fish
       shell:
         cmd: cat /etc/shells
       register: get_shells
 
-    - name: make fish the default shell
+    - name: set fish as the default shell
       shell:
         cmd: |
           echo "/home/linuxbrew/.linuxbrew/bin/fish" | sudo tee -a /etc/shells
-          chsh -s /home/linuxbrew/.linuxbrew/bin/fish
+          chsh -s /home/linuxbrew/.linuxbrew/bin/fish {{ user }}
       when: get_shells.stdout.find('fish') == -1
+
+    - name: check if fisher is installed
+      stat:
+        path: $HOME/.config/fish/fish_plugins
+      register: fisher_plugins
+
+    - name: install fisher
+      script: ../scripts/install-fisher.fish
+      when: not fisher_plugins.stat.exists
+
+    - name: install fisher plugins
+      script: ../scripts/install-fish-plugins.fish
+
+    - name: install dotfiles
+      script: ../scripts/install-dot-files.sh
+
+    - name: configure tide prompt
+      script: ../scripts/configure-tide-prompt.fish
