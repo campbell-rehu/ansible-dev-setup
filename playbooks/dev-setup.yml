@@ -1,0 +1,96 @@
+- name: "setup development environment"
+  hosts: "*"
+  vars_files:
+    - ../variables/variables.yml
+  tasks:
+    - name: install apt deps
+      become: true
+      apt:
+        name:
+          - ninja-build
+          - gettext
+          - cmake
+          - unzip
+          - curl
+          - git
+          - make
+          - python3
+          - python3-dev
+        state: present
+
+    - name: install brew
+      script: ../scripts/install-brew.sh
+      args:
+        creates: /home/linuxbrew/.linuxbrew/bin/brew
+
+    - name: install build-essential deps for homebrew
+      become: true
+      apt:
+        name:
+          - build-essential
+
+    - name: check ~/.bashrc file
+      shell:
+        cmd: cat $HOME/.bashrc
+      register: check_bash_rc
+
+    - name: install pip and add pip to the PATH
+      script: ../scripts/install-pip.sh
+      args:
+        creates: /usr/local/bin/pip
+
+    - name: install fish
+      shell:
+        cmd: /home/linuxbrew/.linuxbrew/bin/brew install fish
+      args:
+        creates: /home/linuxbrew/.linuxbrew/bin/fish
+
+    - name: clone neovim repo
+      shell:
+        cmd: cd $HOME && git clone https://github.com/neovim/neovim
+      args:
+        creates: /usr/local/bin/nvim
+
+    - name: cmake build neovim
+      shell:
+        cmd: cd $HOME/neovim && git checkout stable && make CMAKE_BUILD_TYPE=RelWithDebInfo
+      args:
+        creates: /usr/local/bin/nvim
+
+    - name: install neovim
+      become: true
+      shell:
+        cmd: cd $HOME/neovim && sudo make install
+      args:
+        creates: /usr/local/bin/nvim
+
+    - name: install nvm & node
+      script: ../scripts/install-nvm-and-node.sh
+      when: check_bash_rc.stdout.find('nvm') == -1
+
+    - name: install lazygit
+      shell:
+        cmd: /home/linuxbrew/.linuxbrew/bin/brew install jesseduffield/lazygit/lazygit
+      args:
+        creates: /home/linuxbrew/.linuxbrew/bin/lazygit
+
+    - name: install rust
+      script: ../scripts/install-rust.sh
+      when: check_bash_rc.stdout.find('cargo') == -1
+
+    - name: install lunarvim
+      script: ../scripts/install-lunarvim.sh
+      args:
+        creates: "{{ home_dir }}/.local/bin/lvim"
+
+    - name: check /etc/shells for fish
+      shell:
+        cmd: cat /etc/shells
+      register: get_shells
+
+    - name: make fish the default shell
+      shell:
+        cmd: |
+          echo "/home/linuxbrew/.linuxbrew/bin/fish" | sudo tee -a /etc/shells
+          chsh -s /home/linuxbrew/.linuxbrew/bin/fish
+      when: get_shells.stdout.find('fish') == -1
