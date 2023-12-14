@@ -1,0 +1,14 @@
+- name: init setup
+  hosts: "*"
+  become: true
+  tasks:
+    - name: upgrade apt
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: install qemu-guest-agent
+      apt:
+        name: qemu-guest-agent
+        state: present
+        update-cache: true
