@@ -15,7 +15,8 @@
           - git
           - make
           - python3
-          - python3-dev
+          - python3-full
+          - vim
         state: present
 
     - name: install brew
@@ -29,12 +30,7 @@
         name:
           - build-essential
 
-    - name: check ~/.bashrc file
-      shell:
-        cmd: cat $HOME/.bashrc
-      register: check_bash_rc
-
-    - name: install pip and add pip to the PATH
+    - name: install pip
       script: ../scripts/install-pip.sh
       args:
         creates: /usr/local/bin/pip
@@ -45,11 +41,15 @@
       args:
         creates: /home/linuxbrew/.linuxbrew/bin/fish
 
+    - name: check if neovim repo exists
+      stat:
+        path: "$HOME/neovim"
+      register: neovim_repo
+
     - name: clone neovim repo
       shell:
         cmd: cd $HOME && git clone https://github.com/neovim/neovim
-      args:
-        creates: /usr/local/bin/nvim
+      when: not neovim_repo.stat.exists and neovim_repo.stat.isdir
 
     - name: cmake build neovim
       shell:
@@ -60,9 +60,14 @@
     - name: install neovim
       become: true
       shell:
-        cmd: cd $HOME/neovim && sudo make install
+        cmd: cd {{ home_dir }}/neovim && sudo make install
       args:
         creates: /usr/local/bin/nvim
+
+    - name: check ~/.bashrc file
+      shell:
+        cmd: cat $HOME/.bashrc
+      register: check_bash_rc
 
     - name: install nvm & node
       script: ../scripts/install-nvm-and-node.sh
@@ -121,6 +126,9 @@
           echo "/home/linuxbrew/.linuxbrew/bin/fish" | sudo tee -a /etc/shells
           chsh -s /home/linuxbrew/.linuxbrew/bin/fish {{ user }}
       when: get_shells.stdout.find('fish') == -1
+
+    - name: add lunarvim and brew to PATH
+      script: ../scripts/add-lunarvim-brew-to-path.fish
 
     - name: check if fisher is installed
       stat:
