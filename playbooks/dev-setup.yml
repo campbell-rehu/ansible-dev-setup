@@ -49,7 +49,7 @@
     - name: clone neovim repo
       shell:
         cmd: cd $HOME && git clone https://github.com/neovim/neovim
-      when: not neovim_repo.stat.exists and neovim_repo.stat.isdir
+      when: neovim_repo.stat.isdir is not defined
 
     - name: cmake build neovim
       shell:
@@ -147,3 +147,14 @@
 
     - name: configure tide prompt
       script: ../scripts/configure-tide-prompt.fish
+
+    - name: check if docker is installed
+      stat:
+        path: /usr/bin/docker
+      register: docker
+
+    - name: install docker
+      shell: |
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh
+      when: not docker.stat.exists
