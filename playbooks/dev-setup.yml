@@ -158,3 +158,9 @@
         curl -fsSL https://get.docker.com -o get-docker.sh
         sh get-docker.sh
       when: not docker.stat.exists
+
+    - name: install zoxide
+      shell:
+        cmd: /home/linuxbrew/.linuxbrew/bin/brew install zoxide
+      args:
+        creates: /home/linuxbrew/.linuxbrew/bin/zoxide
