@@ -142,6 +142,12 @@
     - name: install fisher plugins
       script: ../scripts/install-fish-plugins.fish
 
+    - name: install zoxide
+      shell:
+        cmd: /home/linuxbrew/.linuxbrew/bin/brew install zoxide
+      args:
+        creates: /home/linuxbrew/.linuxbrew/bin/zoxide
+
     - name: install dotfiles
       script: ../scripts/install-dot-files.sh
 
@@ -158,9 +164,3 @@
         curl -fsSL https://get.docker.com -o get-docker.sh
         sh get-docker.sh
       when: not docker.stat.exists
-
-    - name: install zoxide
-      shell:
-        cmd: /home/linuxbrew/.linuxbrew/bin/brew install zoxide
-      args:
-        creates: /home/linuxbrew/.linuxbrew/bin/zoxide
