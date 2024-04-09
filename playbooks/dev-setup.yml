@@ -17,6 +17,7 @@
           - python3
           - python3-full
           - vim
+          - ripgrep 
         state: present
 
     - name: install brew
@@ -43,30 +44,30 @@
 
     - name: check if neovim repo exists
       stat:
-        path: "$HOME/neovim"
+        path: "{{ dev_dir }}/neovim"
       register: neovim_repo
 
     - name: clone neovim repo
       shell:
-        cmd: cd $HOME && git clone https://github.com/neovim/neovim
+        cmd: mkdir -p {{ dev_dir }} && cd {{ dev_dir }} && git clone https://github.com/neovim/neovim
       when: neovim_repo.stat.isdir is not defined
 
     - name: cmake build neovim
       shell:
-        cmd: cd $HOME/neovim && git checkout stable && make CMAKE_BUILD_TYPE=RelWithDebInfo
+        cmd: cd {{ dev_dir }}/neovim && git checkout stable && make CMAKE_BUILD_TYPE=RelWithDebInfo
       args:
         creates: /usr/local/bin/nvim
 
     - name: install neovim
       become: true
       shell:
-        cmd: cd {{ home_dir }}/neovim && sudo make install
+        cmd: cd {{ dev_dir }}/neovim && sudo make install
       args:
         creates: /usr/local/bin/nvim
 
     - name: check ~/.bashrc file
       shell:
-        cmd: cat $HOME/.bashrc
+        cmd: cat {{ home_dir }}/.bashrc
       register: check_bash_rc
 
     - name: install nvm & node
@@ -132,7 +133,7 @@
 
     - name: check if fisher is installed
       stat:
-        path: $HOME/.config/fish/fish_plugins
+        path: "{{ home_dir }}/.config/fish/fish_plugins"
       register: fisher_plugins
 
     - name: install fisher
@@ -147,6 +148,12 @@
         cmd: /home/linuxbrew/.linuxbrew/bin/brew install zoxide
       args:
         creates: /home/linuxbrew/.linuxbrew/bin/zoxide
+
+    - name: install fzf
+      shell:
+        cmd: /home/linuxbrew/.linuxbrew/bin/brew install fzf
+      args:
+        creates: /home/linuxbrew/.linuxbrew/bin/fzf
 
     - name: install dotfiles
       script: ../scripts/install-dot-files.sh
