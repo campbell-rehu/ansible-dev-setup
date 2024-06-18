@@ -1,5 +1,6 @@
 - name: "setup development environment"
   hosts: "*"
+  gather_facts: true
   vars_files:
     - ../variables/variables.yml
   tasks:
@@ -19,75 +20,42 @@
           - vim
           - ripgrep 
         state: present
+      when: ansible_facts['distribution'] == "Ubuntu"
 
     - name: install brew
       script: ../scripts/install-brew.sh
       args:
-        creates: /home/linuxbrew/.linuxbrew/bin/brew
+        creates: "{{ homebrew_dir }}/brew"
+
+    - name: install deps (macos)
+      shell:
+        cmd: "{{ homebrew_dir }}/brew install ripgrep gettext cmake unzip curl git make python3 vim"
+      when: ansible_facts['distribution'] == "MacOSX"
 
     - name: install build-essential deps for homebrew
       become: true
       apt:
         name:
           - build-essential
+      when: ansible_facts['distribution'] == "Ubuntu"
 
     - name: install pip
       script: ../scripts/install-pip.sh
       args:
         creates: /usr/local/bin/pip
 
-    - name: install fish
-      shell:
-        cmd: /home/linuxbrew/.linuxbrew/bin/brew install fish
-      args:
-        creates: /home/linuxbrew/.linuxbrew/bin/fish
-
-    - name: check if neovim repo exists
-      stat:
-        path: "{{ dev_dir }}/neovim"
-      register: neovim_repo
-
-    - name: clone neovim repo
-      shell:
-        cmd: mkdir -p {{ dev_dir }} && cd {{ dev_dir }} && git clone https://github.com/neovim/neovim
-      when: neovim_repo.stat.isdir is not defined
-
-    - name: cmake build neovim
-      shell:
-        cmd: cd {{ dev_dir }}/neovim && git checkout stable && make CMAKE_BUILD_TYPE=RelWithDebInfo
-      args:
-        creates: /usr/local/bin/nvim
-
-    - name: install neovim
-      become: true
-      shell:
-        cmd: cd {{ dev_dir }}/neovim && sudo make install
-      args:
-        creates: /usr/local/bin/nvim
+    - name: install homebrew packages
+      community.general.homebrew:
+        name: fish,neovim,jesseduffield/lazygit/lazygit,zoxide,fzf
 
     - name: check ~/.bashrc file
       shell:
         cmd: cat {{ home_dir }}/.bashrc
       register: check_bash_rc
 
-    - name: install nvm & node
-      script: ../scripts/install-nvm-and-node.sh
-      when: check_bash_rc.stdout.find('nvm') == -1
-
-    - name: install lazygit
-      shell:
-        cmd: /home/linuxbrew/.linuxbrew/bin/brew install jesseduffield/lazygit/lazygit
-      args:
-        creates: /home/linuxbrew/.linuxbrew/bin/lazygit
-
     - name: install rust
       script: ../scripts/install-rust.sh
       when: check_bash_rc.stdout.find('cargo') == -1
-
-    - name: install lunarvim
-      script: ../scripts/install-lunarvim.sh
-      args:
-        creates: "{{ home_dir }}/.local/bin/lvim"
 
     - name: get list of groups
       shell:
@@ -95,26 +63,32 @@
       args:
         executable: /bin/bash
       register: get_groups
+      when:
+        - ansible_facts['distribution'] == "Ubuntu"
 
     - name: create chsh group
-      become: true
       shell:
         cmd: |
           groupadd chsh
           usermod -a -G chsh {{ user }}
-      when: get_groups.stdout.find('chsh') == -1
+      when: 
+        - ansible_facts['distribution'] == "Ubuntu"
+        - get_groups.stdout.find('chsh') == -1
 
     - name: get chsh pam.d
       shell:
         cmd: cat /etc/pam.d/chsh
       register: get_pamd
+      when:
+        - ansible_facts['distribution'] == "Ubuntu"
 
     - name: add chsh group permissions to change shell
-      become: true
       shell:
         cmd: |
           echo "auth       sufficient   pam_wheel.so trust group=chsh" | cat - /etc/pam.d/chsh > /tmp/out && sudo mv /tmp/out /etc/pam.d/chsh -f
-      when: get_pamd.stdout.find('group=chsh') == -1
+      when:
+        - ansible_facts['distribution'] == "Ubuntu"
+        - get_pamd.stdout.find('group=chsh') == -1 
 
     - name: check /etc/shells for fish
       shell:
@@ -122,14 +96,12 @@
       register: get_shells
 
     - name: set fish as the default shell
+      become: true
       shell:
         cmd: |
-          echo "/home/linuxbrew/.linuxbrew/bin/fish" | sudo tee -a /etc/shells
-          chsh -s /home/linuxbrew/.linuxbrew/bin/fish {{ user }}
+          echo "{{ homebrew_dir }}/fish" | sudo tee -a /etc/shells
+          chsh -s "{{ homebrew_dir }}/fish" {{ user }}
       when: get_shells.stdout.find('fish') == -1
-
-    - name: add lunarvim and brew to PATH
-      script: ../scripts/add-lunarvim-brew-to-path.fish
 
     - name: check if fisher is installed
       stat:
@@ -143,17 +115,8 @@
     - name: install fisher plugins
       script: ../scripts/install-fish-plugins.fish
 
-    - name: install zoxide
-      shell:
-        cmd: /home/linuxbrew/.linuxbrew/bin/brew install zoxide
-      args:
-        creates: /home/linuxbrew/.linuxbrew/bin/zoxide
-
-    - name: install fzf
-      shell:
-        cmd: /home/linuxbrew/.linuxbrew/bin/brew install fzf
-      args:
-        creates: /home/linuxbrew/.linuxbrew/bin/fzf
+    - name: install node
+      script: ../scripts/install-node.sh
 
     - name: install dotfiles
       script: ../scripts/install-dot-files.sh
@@ -165,9 +128,28 @@
       stat:
         path: /usr/bin/docker
       register: docker
+      when:
+        - ansible_facts['distribution'] == "Ubuntu"
+
+    - name: check if docker is installed (macos)
+      stat:
+        path: /usr/local/bin/docker
+      register: docker
+      when:
+        - ansible_facts['distribution'] == "MacOSX"
 
     - name: install docker
       shell: |
         curl -fsSL https://get.docker.com -o get-docker.sh
         sh get-docker.sh
-      when: not docker.stat.exists
+      when: 
+        - ansible_facts['distribution'] == "Ubuntu"
+        - not docker.stat.exists
+
+    - name: install docker (macos)
+      community.general.homebrew:
+        name: homebrew/cask/docker
+        state: present
+      when: 
+        - not docker.stat.exists
+        - ansible_facts['distribution'] == "MacOSX"
