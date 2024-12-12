@@ -18,14 +18,24 @@
           - python3
           - python3-full
           - vim
-          - ripgrep 
+          - ripgrep
         state: present
       when: ansible_facts['distribution'] == "Ubuntu"
 
     - name: install brew
       script: ../scripts/install-brew.sh
       args:
-        creates: "{{ homebrew_dir }}/brew"
+        creates: "{{ homebrew_dir }}/bin/brew"
+
+    - name: check PATH
+      shell:
+        cmd: echo $PATH
+      register: check_path
+
+    - name: add homebrew to PATH
+      shell:
+        cmd: "PATH={{ homebrew_dir }}/bin:$PATH"
+      when: check_path.stdout.find('brew') == -1
 
     - name: install deps (macos)
       shell:
@@ -57,51 +67,23 @@
       script: ../scripts/install-rust.sh
       when: check_bash_rc.stdout.find('cargo') == -1
 
-    - name: get list of groups
-      shell:
-        cmd: compgen -g
-      args:
-        executable: /bin/bash
-      register: get_groups
-      when:
-        - ansible_facts['distribution'] == "Ubuntu"
-
-    - name: create chsh group
-      shell:
-        cmd: |
-          groupadd chsh
-          usermod -a -G chsh {{ user }}
-      when: 
-        - ansible_facts['distribution'] == "Ubuntu"
-        - get_groups.stdout.find('chsh') == -1
-
-    - name: get chsh pam.d
-      shell:
-        cmd: cat /etc/pam.d/chsh
-      register: get_pamd
-      when:
-        - ansible_facts['distribution'] == "Ubuntu"
-
-    - name: add chsh group permissions to change shell
-      shell:
-        cmd: |
-          echo "auth       sufficient   pam_wheel.so trust group=chsh" | cat - /etc/pam.d/chsh > /tmp/out && sudo mv /tmp/out /etc/pam.d/chsh -f
-      when:
-        - ansible_facts['distribution'] == "Ubuntu"
-        - get_pamd.stdout.find('group=chsh') == -1 
-
     - name: check /etc/shells for fish
       shell:
         cmd: cat /etc/shells
       register: get_shells
 
-    - name: set fish as the default shell
+    - name: add fish to /etc/shells
       become: true
       shell:
         cmd: |
-          echo "{{ homebrew_dir }}/fish" | sudo tee -a /etc/shells
-          chsh -s "{{ homebrew_dir }}/fish" {{ user }}
+          echo "{{ homebrew_dir }}/bin/fish" | sudo tee -a /etc/shells
       when: get_shells.stdout.find('fish') == -1
+
+    - name: set default shell to fish
+      become: true
+      user:
+        name: "{{ user }}"
+        shell: "{{ homebrew_dir }}/bin/fish"
 
     - name: check if fisher is installed
       stat:
@@ -127,14 +109,14 @@
     - name: check if docker is installed
       stat:
         path: /usr/bin/docker
-      register: docker
+      register: docker_ubuntu
       when:
         - ansible_facts['distribution'] == "Ubuntu"
 
     - name: check if docker is installed (macos)
       stat:
         path: /usr/local/bin/docker
-      register: docker
+      register: docker_macos
       when:
         - ansible_facts['distribution'] == "MacOSX"
 
@@ -142,14 +124,14 @@
       shell: |
         curl -fsSL https://get.docker.com -o get-docker.sh
         sh get-docker.sh
-      when: 
+      when:
         - ansible_facts['distribution'] == "Ubuntu"
-        - not docker.stat.exists
+        - not docker_ubuntu.stat.exists
 
     - name: install docker (macos)
       community.general.homebrew:
         name: homebrew/cask/docker
         state: present
-      when: 
-        - not docker.stat.exists
+      when:
         - ansible_facts['distribution'] == "MacOSX"
+        - not docker_macos.stat.exists
