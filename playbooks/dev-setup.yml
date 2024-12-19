@@ -32,11 +32,6 @@
         cmd: echo $PATH
       register: check_path
 
-    - name: add homebrew to PATH
-      shell:
-        cmd: "PATH={{ homebrew_dir }}/bin:$PATH"
-      when: check_path.stdout.find('brew') == -1
-
     - name: install deps (macos)
       shell:
         cmd: "{{ homebrew_dir }}/brew install ripgrep gettext cmake unzip curl git make python3 vim"
@@ -85,6 +80,13 @@
         name: "{{ user }}"
         shell: "{{ homebrew_dir }}/bin/fish"
 
+    - name: add homebrew to the system-wide $PATH
+      shell:
+        cmd: "fish_add_path {{ homebrew_dir }}/bin"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
+      when: check_path.stdout.find('brew') == -1
+
     - name: check if fisher is installed
       stat:
         path: "{{ home_dir }}/.config/fish/fish_plugins"
@@ -121,9 +123,9 @@
         - ansible_facts['distribution'] == "MacOSX"
 
     - name: install docker
-      shell: |
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sh get-docker.sh
+      community.general.homebrew:
+        name: homebrew/cask/docker
+        state: present
       when:
         - ansible_facts['distribution'] == "Ubuntu"
         - not docker_ubuntu.stat.exists
@@ -135,3 +137,23 @@
       when:
         - ansible_facts['distribution'] == "MacOSX"
         - not docker_macos.stat.exists
+
+    - name: create docker group
+      group:
+        name: docker
+        state: present
+
+    - name: add user to docker group
+      become: true
+      user:
+        name: "{{ user }}"
+        groups: docker
+        append: true
+
+    - name: Reset connection so docker group is picked up.
+      meta: reset_connection
+
+    - name: verify docker command can run for the user
+      shell: test "$(docker ps | echo $status)" -eq 0
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
