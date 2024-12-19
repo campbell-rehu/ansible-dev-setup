@@ -17,6 +17,6 @@ This playbook sets up my preferred development environment by:
 
 - installing brew
 - installing neovim and its requisite dependencies
-- installing lunarvim (my preferred neovim IDE layer)
 - installing fish shell and plugins (my preferred shell)
 - loading my [dotfiles](https://github.com/campbell-rehu/dotfiles)
+- installing and setting up docker
