@@ -1,0 +1,11 @@
+- name: "update dotfiles"
+  hosts: "*"
+  gather_facts: true
+  vars_files:
+    - ../variables/variables.yml
+  tasks:
+    - name: pull latest dotfiles
+      shell:
+        cmd: "cd {{ dotfiles_dir }} && git pull && ./setup.sh"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
