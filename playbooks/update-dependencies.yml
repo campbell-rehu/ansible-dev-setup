@@ -1,0 +1,28 @@
+- name: "update remote dependencies"
+  hosts: "*"
+  gather_facts: true
+  vars_files:
+    - ../variables/variables.yml
+  tasks:
+    - name: Update and upgrade apt packages
+      become: true
+      apt:
+        upgrade: yes
+        update_cache: yes
+    - name: update dotfiles
+      shell:
+        cmd: "cd {{ dotfiles_dir }} && git pull && ./setup.sh"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
+    - name: update neovim
+      shell:
+        cmd: "{{ homebrew_dir }}/bin/brew install neovim"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
+    - name: update node
+      script: ../scripts/install-node.sh
+    - name: update fisher plugins
+      shell:
+        cmd: "fisher update"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"

@@ -1,4 +1,4 @@
 #! /usr/bin/env fish
 
 nvm install latest
-nvm use latest
+set --universal nvm_default_version latest
