@@ -19,6 +19,7 @@
           - python3-full
           - vim
           - ripgrep
+          - ca-certificates
         state: present
       when: ansible_facts['distribution'] == "Ubuntu"
 
@@ -93,20 +94,32 @@
       register: fisher_plugins
 
     - name: install fisher
-      script: ../scripts/install-fisher.fish
+      shell:
+        cmd: "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
       when: not fisher_plugins.stat.exists
 
     - name: install fisher plugins
-      script: ../scripts/install-fish-plugins.fish
+      shell:
+        cmd: "fisher install edc/bass ilancosman/tide@v6 jorgebucaran/nvm.fish"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
 
     - name: install node
-      script: ../scripts/install-node.sh
+      shell:
+        cmd: "nvm install latest && set --universal nvm_default_version latest"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
 
     - name: install dotfiles
       script: ../scripts/install-dot-files.sh
 
     - name: configure tide prompt
-      script: ../scripts/configure-tide-prompt.fish
+      shell:
+        cmd: "tide configure --auto --style=Lean --prompt_colors='True color' --show_time=No --lean_prompt_height='One line' --prompt_spacing=Sparse --icons='Many icons' --transient=No"
+      args:
+        executable: "{{ homebrew_dir }}/bin/fish"
 
     - name: check if docker is installed
       stat:
@@ -123,22 +136,34 @@
         - ansible_facts['distribution'] == "MacOSX"
 
     - name: install docker
-      community.general.homebrew:
-        name: homebrew/cask/docker
+      become: true
+      package:
+        name: docker-ce
         state: present
+      when:
+        - ansible_facts['distribution'] == "Ubuntu"
+        - not docker_ubuntu.stat.exists
+
+    - name: start docker daemon
+      become: true
+      service:
+        name: docker
+        state: started
+        enabled: yes
       when:
         - ansible_facts['distribution'] == "Ubuntu"
         - not docker_ubuntu.stat.exists
 
     - name: install docker (macos)
       community.general.homebrew:
-        name: homebrew/cask/docker
+        name: docker
         state: present
       when:
         - ansible_facts['distribution'] == "MacOSX"
         - not docker_macos.stat.exists
 
     - name: create docker group
+      become: true
       group:
         name: docker
         state: present
