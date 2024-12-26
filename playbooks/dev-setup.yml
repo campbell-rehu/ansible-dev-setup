@@ -23,6 +23,12 @@
         state: present
       when: ansible_facts['distribution'] == "Ubuntu"
 
+    - name: setup locale
+      locale_gen:
+        name: en_NZ.UTF-8
+        state: present
+      when: ansible_facts['distribution'] == "Ubuntu"
+
     - name: install brew
       script: ../scripts/install-brew.sh
       args:
@@ -134,6 +140,13 @@
       register: docker_macos
       when:
         - ansible_facts['distribution'] == "MacOSX"
+
+    - name: add docker apt repository
+      become: true
+      script: ../scripts/setup-docker-apt-repository.sh
+      when:
+        - ansible_facts['distribution'] == "Ubuntu"
+        - not docker_ubuntu.stat.exists
 
     - name: install docker
       become: true
