@@ -4,13 +4,6 @@ Repository for storing ansible playbooks for setting up new Ubuntu virtual machi
 
 # Playbooks
 
-## init.setup.yml
-
-This playbook does an initial setup of an Ubuntu virtual machine by the following:
-
-- runs `sudo apt update`
-- installs the qemu-guest-agent
-
 ## dev-setup.yml
 
 This playbook sets up my preferred development environment by:
@@ -20,3 +13,13 @@ This playbook sets up my preferred development environment by:
 - installing fish shell and plugins (my preferred shell)
 - loading my [dotfiles](https://github.com/campbell-rehu/dotfiles)
 - installing and setting up docker
+
+## update-dependencies.yml
+
+This playbook updates all of the dev environment dependencies on the system:
+
+- updates all apt packages
+- updates dotfiles
+- updates brew and all brew packages
+- updates node
+- updates fisher plugins
