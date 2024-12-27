@@ -14,11 +14,10 @@
         cmd: "cd {{ dotfiles_dir }} && git pull && ./setup.sh"
       args:
         executable: "{{ homebrew_dir }}/bin/fish"
-    - name: update neovim
-      shell:
-        cmd: "{{ homebrew_dir }}/bin/brew install neovim"
-      args:
-        executable: "{{ homebrew_dir }}/bin/fish"
+    - name: update brew and brew packages
+      homebrew:
+        update_homebrew: true
+        upgrade_all: true
     - name: update node
       script: ../scripts/install-node.sh
     - name: update fisher plugins
